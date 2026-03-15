@@ -1,6 +1,8 @@
 esphome:
   name: air-quality-sensor
   friendly_name: air-quality-sensor
+  includes:
+    - wifi_icon.h
 
 esp8266:
   board: esp01_1m
@@ -100,7 +102,7 @@ sensor:
     #address: 0x69
     update_interval: 10s
 
-# AQI (US EPA) from PM2.5 - piecewise linear
+  # AQI (US EPA) from PM2.5 - piecewise linear
   - platform: template
     id: aqi
     name: "AQI"
@@ -116,6 +118,16 @@ sensor:
       if (pm <= 500.0f) return 300.0f + (pm - 250.4f) * (200.0f / 249.6f);
       return 500.0f;
     update_interval: 10s
+
+  - platform: wifi_signal # Reports the WiFi signal strength in %
+    name: "WiFi Signal Percent"
+    filters:
+      - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);
+    unit_of_measurement: "Signal %"
+    id: wifi_signal_pct
+    update_interval: 60s
+    entity_category: "diagnostic"
+    internal: True
 
 font:
   - file: "DejaVuSansMono.ttf"
@@ -133,6 +145,17 @@ font:
   - file: "DejaVuSansMono.ttf"
     id: verylarge
     size: 30
+  - file: "materialdesignicons-webfont.ttf"
+    id: mdi_small
+    size: 12
+    glyphs: [
+        "󰤮", # no-wifi
+        "󰤯", # low-wifi
+        "󰤟", # wifi-1
+        "󰤢", # wifi-2
+        "󰤥", # wifi-3
+        "󰤨", # wifi-4
+     ]
 
 globals:
   - id: display_view
@@ -152,16 +175,17 @@ display:
     address: 0x3C
     lambda: |-
       int v = id(display_view);
-      it.strftime(63, 0, id(extra_small), TextAlign::TOP_CENTER, "%b %d %I:%M:%S %p", id(homeassistant_time).now());
+      it.strftime(5, 0, id(extra_small), TextAlign::TOP_LEFT, "%b %d %I:%M %p", id(homeassistant_time).now());
+      it.print(127, 0, id(mdi_small), TextAlign::TOP_RIGHT, wifi_icon(id(wifi_signal_pct).state));
       // Font heights: small 10px, medium 14px, large 20px. Display 128x64.
       if (v == 0) {
         // View 0: Big AQI
         it.printf(5, 33, id(verylarge), TextAlign::CENTER_LEFT, "AQI");
         it.printf(122, 33, id(verylarge), TextAlign::CENTER_RIGHT, "%.0f", id(aqi).state);
-        it.printf(0, 58, id(extra_small), TextAlign::CENTER_LEFT, "PM2.5");
-        it.printf(60, 58, id(extra_small), TextAlign::CENTER_RIGHT, "%.0f", id(pm_2_5).state);
-        it.printf(66, 58, id(extra_small), TextAlign::CENTER_LEFT, "PM10");
-        it.printf(127, 58, id(extra_small), TextAlign::CENTER_RIGHT, "%.0f", id(pm_10_0).state);
+        it.printf(0, 63, id(extra_small), TextAlign::BASELINE_LEFT, "PM2.5");
+        it.printf(60, 63, id(small), TextAlign::BASELINE_RIGHT, "%.0f", id(pm_2_5).state);
+        it.printf(66, 63, id(extra_small), TextAlign::BASELINE_LEFT, "PM10");
+        it.printf(127, 63, id(small), TextAlign::BASELINE_RIGHT, "%.0f", id(pm_10_0).state);
       } else if (v == 1) {
         // View 1: PM breakdown
         it.printf(0, 26, id(extra_small), TextAlign::CENTER_LEFT, "PM1");
