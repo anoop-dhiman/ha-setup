@@ -11,11 +11,11 @@ logger:
 # Enable Home Assistant API
 api:
   encryption:
-    key: "64OyminhQY7voF14GwpnerTJvoZlFdHGqU6rPvQNytM="
+    key: "your-key-here"
 
 ota:
   - platform: esphome
-    password: "bcf7d39ca63e102360c2db0d082c9c5a"
+    password: "your-password-here"
 
 wifi:
   ssid: !secret wifi_ssid
@@ -23,15 +23,15 @@ wifi:
   min_auth_mode: WPA2
   fast_connect: True
 
-  manual_ip:
-    static_ip: 192.168.0.99
-    gateway: 192.168.0.1
-    subnet: 255.255.255.0
+  # manual_ip:
+  #   static_ip: 192.168.0.99
+  #   gateway: 192.168.0.1
+  #   subnet: 255.255.255.0
 
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
     ssid: "Air-Quality-Sensor"
-    password: "5b1bZyd8x7ID"
+    password: "your-password-here"
 
 captive_portal:
 
@@ -100,10 +100,39 @@ sensor:
     #address: 0x69
     update_interval: 10s
 
+# AQI (US EPA) from PM2.5 - piecewise linear
+  - platform: template
+    id: aqi
+    name: "AQI"
+    accuracy_decimals: 0
+    lambda: |-
+      float pm = id(pm_2_5).state;
+      if (std::isnan(pm) || pm < 0) return 0.0f;
+      if (pm <= 12.0f) return pm * (50.0f / 12.0f);
+      if (pm <= 35.4f) return 50.0f + (pm - 12.0f) * (50.0f / 23.4f);
+      if (pm <= 55.4f) return 100.0f + (pm - 35.4f) * (50.0f / 20.0f);
+      if (pm <= 150.4f) return 150.0f + (pm - 55.4f) * (50.0f / 95.0f);
+      if (pm <= 250.4f) return 200.0f + (pm - 150.4f) * (100.0f / 100.0f);
+      if (pm <= 500.0f) return 300.0f + (pm - 250.4f) * (200.0f / 249.6f);
+      return 500.0f;
+    update_interval: 10s
+
 font:
   - file: "DejaVuSansMono.ttf"
-    id: small
+    id: extra_small
     size: 10
+  - file: "DejaVuSansMono.ttf"
+    id: small
+    size: 12
+  - file: "DejaVuSansMono.ttf"
+    id: medium
+    size: 16
+  - file: "DejaVuSansMono.ttf"
+    id: large
+    size: 24
+  - file: "DejaVuSansMono.ttf"
+    id: verylarge
+    size: 30
 
 globals:
   - id: display_view
@@ -112,44 +141,47 @@ globals:
     initial_value: '0'
 
 interval:
-  - interval: 5s   # change to whatever seconds you want (e.g. 10s)
+  - interval: 10s
     then:
       - lambda: |-
-          id(display_view) = (id(display_view) + 1) % 2;
+          id(display_view) = (id(display_view) + 1) % 4;
 
 display:
   - platform: ssd1306_i2c
     model: "SH1106 128x64"
     address: 0x3C
     lambda: |-
-      if (id(display_view) == 0) {
-        // View 1: detailed list
-        it.printf(0, 0, id(small), TextAlign::TOP_LEFT, "Time");
-        it.strftime(127, 0, id(small), TextAlign::TOP_RIGHT, "%H:%M", id(homeassistant_time).now());
-        it.printf(0, 12, id(small), TextAlign::TOP_LEFT, "PM1");
-        it.printf(61, 12, id(small), TextAlign::TOP_RIGHT , "%.0f", id(pm_1_0).state);
-        it.printf(66, 12, id(small), TextAlign::TOP_LEFT, "PM2.5");
-        it.printf(127, 12, id(small), TextAlign::TOP_RIGHT , "%.0f", id(pm_2_5).state);
-        it.printf(0, 24, id(small), TextAlign::TOP_LEFT, "PM4");
-        it.printf(61, 24, id(small), TextAlign::TOP_RIGHT , "%.0f", id(pm_4_0).state);
-        it.printf(66, 24, id(small), TextAlign::TOP_LEFT, "PM10");
-        it.printf(127, 24, id(small), TextAlign::TOP_RIGHT , "%.0f", id(pm_10_0).state);
-        it.printf(0, 36, id(small), TextAlign::TOP_LEFT, "VOC");
-        it.printf(61, 36, id(small), TextAlign::TOP_RIGHT , "%.0f", id(voc).state);
-        it.printf(66, 36, id(small), TextAlign::TOP_LEFT, "NOX");
-        it.printf(127, 36, id(small), TextAlign::TOP_RIGHT , "%.0f", id(nox).state);
-        it.printf(0, 48, id(small), TextAlign::TOP_LEFT, "TEMP");
-        it.printf(61, 48, id(small), TextAlign::TOP_RIGHT , "%.1f", id(temp).state);
-        it.printf(66, 48, id(small), TextAlign::TOP_LEFT, "HUM");
-        it.printf(127, 48, id(small), TextAlign::TOP_RIGHT , "%.0f", id(humidity).state);
-      } else {
-        // View 2: e.g. big PM2.5 + time
-        it.printf(0, 0, id(small), TextAlign::TOP_LEFT, "Time");
-        it.strftime(127, 0, id(small), TextAlign::TOP_RIGHT, "%H:%M", id(homeassistant_time).now());
-        it.printf(0, 24, id(small), TextAlign::TOP_LEFT, "PM2.5");
-        it.printf(127, 24, id(small), TextAlign::TOP_RIGHT, "%.0f", id(pm_2_5).state);
-        it.printf(0, 48, id(small), TextAlign::TOP_LEFT, "T+C");
-        it.printf(61, 48, id(small), TextAlign::TOP_RIGHT, "%.1f", id(temp).state);
-        it.printf(66, 48, id(small), TextAlign::TOP_LEFT, "H");
-        it.printf(127, 48, id(small), TextAlign::TOP_RIGHT, "%.0f", id(humidity).state);
+      int v = id(display_view);
+      it.strftime(63, 0, id(extra_small), TextAlign::TOP_CENTER, "%b %d %I:%M:%S %p", id(homeassistant_time).now());
+      // Font heights: small 10px, medium 14px, large 20px. Display 128x64.
+      if (v == 0) {
+        // View 0: Big AQI
+        it.printf(5, 33, id(verylarge), TextAlign::CENTER_LEFT, "AQI");
+        it.printf(122, 33, id(verylarge), TextAlign::CENTER_RIGHT, "%.0f", id(aqi).state);
+        it.printf(0, 58, id(extra_small), TextAlign::CENTER_LEFT, "PM2.5");
+        it.printf(60, 58, id(extra_small), TextAlign::CENTER_RIGHT, "%.0f", id(pm_2_5).state);
+        it.printf(66, 58, id(extra_small), TextAlign::CENTER_LEFT, "PM10");
+        it.printf(127, 58, id(extra_small), TextAlign::CENTER_RIGHT, "%.0f", id(pm_10_0).state);
+      } else if (v == 1) {
+        // View 1: PM breakdown
+        it.printf(0, 26, id(extra_small), TextAlign::CENTER_LEFT, "PM1");
+        it.printf(60, 26, id(medium), TextAlign::CENTER_RIGHT, "%.0f", id(pm_1_0).state);
+        it.printf(66, 26, id(extra_small), TextAlign::CENTER_LEFT, "PM4");
+        it.printf(127, 26, id(medium), TextAlign::CENTER_RIGHT, "%.0f", id(pm_4_0).state);
+        it.printf(0, 52, id(extra_small), TextAlign::CENTER_LEFT, "PM2.5");
+        it.printf(60, 52, id(medium), TextAlign::CENTER_RIGHT, "%.0f", id(pm_2_5).state);
+        it.printf(66, 52, id(extra_small), TextAlign::CENTER_LEFT, "PM10");
+        it.printf(127, 52, id(medium), TextAlign::CENTER_RIGHT, "%.0f", id(pm_10_0).state);
+      } else if (v == 2) {
+        // View 2: Big VOC & NOX
+        it.printf(5, 28, id(medium), TextAlign::CENTER_LEFT, "VOC");
+        it.printf(120, 28, id(medium), TextAlign::CENTER_RIGHT, "%.0f", id(voc).state);
+        it.printf(5, 52, id(medium), TextAlign::CENTER_LEFT, "NOX");
+        it.printf(120, 52, id(medium), TextAlign::CENTER_RIGHT, "%.0f", id(nox).state);
+      } else if (v == 3) {
+        // View 3: Big Temp & Humidity
+        it.printf(5, 28, id(medium), TextAlign::CENTER_LEFT, "TEMP");
+        it.printf(126, 28, id(medium), TextAlign::CENTER_RIGHT, "%.1f C", id(temp).state);
+        it.printf(5, 52, id(medium), TextAlign::CENTER_LEFT, "HUM");
+        it.printf(126, 52, id(medium), TextAlign::CENTER_RIGHT, "%.1f %%", id(humidity).state);
       }
