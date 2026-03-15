@@ -145,6 +145,8 @@ font:
   - file: "DejaVuSansMono.ttf"
     id: verylarge
     size: 30
+
+  # Material Design Icons - https://cdn.jsdelivr.net/npm/@mdi/font@5.4.55/
   - file: "materialdesignicons-webfont.ttf"
     id: mdi_small
     size: 12
